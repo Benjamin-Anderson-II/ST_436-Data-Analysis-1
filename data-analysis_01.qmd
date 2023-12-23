@@ -1,0 +1,133 @@
+---
+title: "436: A Comparison of Participation in Intercollegiate Athletics"
+author: Benjamin Anderson II
+format: pdf
+execute: 
+  echo: false
+---
+
+```{r}
+#| include: false
+install.packages("tidyverse")
+install.packages("knitr")
+library(tidyverse)
+library(knitr) # For pretty printing tables
+```
+
+```{r}
+#| message: false
+# Variable Declaration and Initialization ====
+
+# So long as sports.csv is in the same directory as the 
+sports <- read_csv("sports.csv")
+
+# We're only asking about Oregon schools
+or_sports <- sports |>
+  filter(state == "OR")
+
+# We only need enrollment and participation information
+or_sports_summary <- or_sports |> 
+  group_by(institution) |>
+  summarize(
+    total_partic_women = sum(partic_women),
+    total_partic_men   = sum(partic_men),
+    enroll_men         = first(enroll_men),
+    enroll_women       = first(enroll_women),
+    sector             = first(sector)
+  )
+```
+
+# Question 1
+**For schools in Oregon, are there differences in the number of men and women participating in intercollegiate sports across the different types of school?**
+
+Each *point* on the following scatter plot represents an individual *school*.
+<!--message is suppressed because otherwise it will say that y ~ x because of the linear regression line-->
+```{r}
+#| message: false
+#| fig-cap: "Scatterplot of the number of participating men and women for schools in Oregon with best fit line (magenta) and 1:1 ratio line (grey)"
+#| fig-width: 6
+
+# Begin Plot =======================
+or_sports_summary |>
+  ggplot(mapping = aes(
+    x = total_partic_women, 
+    y = total_partic_men
+  )) +
+  
+# Reference line -------------------
+  # First so that it's in the background
+  geom_abline(
+    color     = "bisque4", 
+    data      = NULL, 
+    slope     = 1, 
+    intercept = 0
+  ) +
+
+# Scatter plot ---------------------
+  geom_point(aes(color = sector)) + 
+  labs(
+    x     = "Participating Women",
+    y     = "Participating Men",
+    color = "School Type",
+  ) +
+
+# Best fit line --------------------
+  geom_smooth(
+    method = "lm", 
+    se     = FALSE, 
+    color  = "deeppink3"
+  )
+```
+## Answer
+The graph above indicates that on average there is a bias toward the participation of men in intercollegiate sports. This is best seen through the inclusion of the fit line being located in the upper triangle of the graph, meaning there is favor shown toward the y-axis (indicating men). Public, 2-year schools seem to be the worst offender in this regard, while public, 4-year or above schools seem to be more equal but still biased toward men. Private, nonprofit, 4-year or above schools on the other hand seem to on average be slightly biased toward women, though it is debatable. At the very least private, nonprofit, 4-year or above schools have a ratio that comparatively leans more toward women than men.
+
+# Question 2
+**Which schools in Oregon have the highest level of participation in intercollegiate sports?**
+
+```{r}
+#| fig-cap: "Histogram of schools' intercollegiate sports participation rate by proportion"
+# Create the "participate" column -----------
+or_sports_summary <- or_sports_summary |>
+  mutate(
+    total_partic = total_partic_men + total_partic_women,
+    total_enroll = enroll_men + enroll_women,
+    participate  = total_partic / total_enroll
+  ) |>
+  # We don't want the total_partic or total_enroll variables
+  subset(select = -c(total_partic, total_enroll))
+
+# Plot the "participate" variable -----------
+or_sports_summary |>
+  ggplot(mapping = aes(x=participate)) +
+  geom_histogram(
+    color    = "black", 
+    fill     = "skyblue", 
+    boundary = 0, 
+    binwidth = 0.02
+  ) +
+  labs(
+    x = "Participation Proportion",
+    y = "Number of Schools"
+  )
+```
+
+As can be seen, the data seems to be left skewed, showing that roughly half (14 out of 27) of the schools in the data set have their participation rates below 15%. We can also see that the top 5 schools in terms of their participation rates are all above 0.35 (or 35%), so we will select these to show the top schools. Note that if we were to take the top ten schools then we would need to cut off at roughly  0.26 (26%).
+
+```{r}
+#| tbl-cap: "Top 5 Oregon schools in terms of participation in descending order"
+#| tbl-colwidths: [40,40]
+#| message: false
+or_sports_summary |>
+  filter(participate > 0.35) |>
+  select(institution, participate) |>
+  arrange(desc(participate)) |>
+  kable()
+```
+## Answer
+The top 5 schools in Oregon in terms of level of participation are:
+
+* Multnomah University with a rate of 49.11%
+* Bushnell University with a rate of 45.15%
+* Corban University with a rate of 41.99%
+* Warner Pacific University with a rate of 36.91%
+* Treasure Valley Community College with a rate of 36.89%.
